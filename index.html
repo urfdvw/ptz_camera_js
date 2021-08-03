@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gamepad 2 PTZ camera</title>
+    <h1 id='pad_exist'>Please connect a gamepad and push a button on the game pad.</h1>
+</head>
+
+<body>
+    <script>
+        window.addEventListener('gamepadconnected', (event) => {
+            pad_exist.innerHTML = 'Gamepad connected.'
+            console.log('gamepadconnected')
+        });
+        window.addEventListener('gamepaddisconnected', (event) => {
+            pad_exist.innerHTML = 'Gamepad connected.'
+            console.log('gamepaddisconnected')
+        });
+    </script>
+</body>
+
+</html>
