@@ -5,18 +5,77 @@
     <meta charset="UTF-8">
     <title>Gamepad 2 PTZ camera</title>
     <h1 id='pad_exist'>Please connect a gamepad and push a button on the game pad.</h1>
+    <button id="connect" onClick='connect()'> Connect </button>
+    <p id='test'></p>
 </head>
 
 <body>
     <script>
+        var gamepad_connected = false
+        var port_connected = false
+        /** 
+         * connect Gamepad 
+         */
+
         window.addEventListener('gamepadconnected', (event) => {
-            pad_exist.innerHTML = 'Gamepad connected.'
-            console.log('gamepadconnected')
+            document.getElementById("pad_exist").innerHTML = 'Gamepad connected.';
+            console.log('gamepadconnected');
+            gamepad_connected = true;
         });
         window.addEventListener('gamepaddisconnected', (event) => {
-            pad_exist.innerHTML = 'Gamepad connected.'
-            console.log('gamepaddisconnected')
+            document.getElementById("pad_exist").innerHTML = 'Gamepad connected.';
+            console.log('gamepaddisconnected');
+            gamepad_connected = true;
         });
+
+
+        /** 
+         * connect Serial
+         */
+
+        let port;
+        let outputDone;
+        let outputStream;
+
+        async function connect() {
+            // connect to serial
+
+            // - Request a port and open a connection.
+            port = await navigator.serial.requestPort();
+
+            // - Wait for the port to open.
+            await port.open({ baudRate: 9600 });
+
+            // if connected, change the button name
+            document.getElementById("connect").innerHTML = "connected";
+            port_connected = true;
+
+            // setup the output stream.
+            const encoder = new TextEncoderStream();
+            outputDone = encoder.readable.pipeTo(port.writable);
+            outputStream = encoder.writable;
+        }
+
+        function send_cmd(s) {
+            // send single byte command
+            // s: str
+            const writer = outputStream.getWriter();
+            writer.write(s);
+            writer.releaseLock();
+        }
+
+        /**
+         * main loop
+         */
+        var intervalId = setInterval(() => {
+            if (port_connected & gamepad_connected) {
+                loop();
+            }
+        }, 100);
+
+        function loop() {
+            document.getElementById("test").innerHTML = navigator.getGamepads()[0].axes
+        }
     </script>
 </body>
 
