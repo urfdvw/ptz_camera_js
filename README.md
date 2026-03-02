@@ -28,7 +28,7 @@
 
 ## 🚀 Quick Start
 
-1. **Open**: Visit https://urfdvw.github.io/visca_ptz_camera_controll/
+1. **Open**: Visit https://urfdvw.github.io/visca_ptz_camera_control/
 2. **Connect**: Click "Connect to Camera" and select your serial port
 3. **Control**: Use keyboard, buttons, or joystick to control your camera
 
