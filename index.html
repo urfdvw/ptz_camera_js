@@ -1,82 +1,1417 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Gamepad 2 PTZ camera</title>
-    <h1 id='pad_exist'>Please connect a gamepad and push a button on the game pad.</h1>
-    <button id="connect" onClick='connect()'> Connect </button>
-    <p id='test'></p>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PTZ Camera Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .connection-screen {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .connection-screen h1 {
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .connect-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .connect-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .main-app {
+            display: none;
+            width: 100%;
+            max-width: 1400px;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .app-header h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .status-connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            grid-auto-rows: 1fr;
+        }
+
+        .dashboard-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-card h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dashboard-card .info {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .dashboard-card .content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* WASD Controls */
+        .wasd-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .wasd-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            grid-template-rows: repeat(2, 80px);
+            gap: 10px;
+        }
+
+        .wasd-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .wasd-btn span {
+            font-size: 20px;
+            margin-top: 5px;
+        }
+
+        .wasd-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .wasd-btn:active {
+            transform: translateY(0) scale(0.95);
+        }
+
+        /* Virtual Joystick */
+        .joystick-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin: 10px auto 0;
+            max-width: 320px;
+        }
+
+        #joystickCanvas {
+            width: 250px;
+            height: 250px;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        #zoomJoystickCanvas {
+            width: 50px;
+            height: 250px;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        /* Speed Control */
+        .speed-container {
+            margin: 15px 0;
+        }
+
+        .speed-display {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .speed-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+            background: #ddd;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .speed-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .speed-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            color: #666;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        /* Presets */
+        .presets-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .preset-item {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .preset-recall {
+            flex: 1;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-align: left;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .preset-recall .preset-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preset-recall:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .preset-recall:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .preset-recall .slot-number {
+            display: block;
+            font-size: 10px;
+            opacity: 0.8;
+            margin-bottom: 3px;
+        }
+
+        .preset-btn {
+            width: 45px;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .preset-set {
+            background: #4caf50;
+        }
+
+        .preset-set:hover {
+            background: #45a049;
+        }
+
+        .preset-rename {
+            background: #ff9800;
+        }
+
+        .preset-rename:hover {
+            background: #fb8c00;
+        }
+
+        .preset-rename:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .preset-clear {
+            background: #f44336;
+        }
+
+        .preset-clear:hover {
+            background: #e53935;
+        }
+
+        .preset-clear:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Edit Toggle */
+        .edit-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .edit-toggle-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .zoom-btn {
+            flex: 1;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.2;
+        }
+
+        .zoom-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .zoom-btn:active {
+            transform: translateY(0) scale(0.95);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .modal-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .modal-btn-secondary {
+            background: #ddd;
+            color: #333;
+        }
+
+        .modal-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
 </head>
-
 <body>
+    <!-- Connection Screen -->
+    <div class="connection-screen" id="connectionScreen">
+        <h1>PTZ Camera Controller</h1>
+        <p style="margin-bottom: 30px; color: #666;">Connect your PTZ camera via Web Serial</p>
+        <button class="connect-btn" onclick="connectSerial()">Connect to Camera</button>
+    </div>
+
+    <!-- Main Application -->
+    <div class="main-app" id="mainApp">
+        <div class="app-header">
+            <h1>PTZ Camera Controller</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span class="status-badge status-connected" id="statusBadge">Connected</span>
+                <button class="connect-btn" style="padding: 8px 20px; font-size: 14px;" onclick="disconnectSerial()">Disconnect</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Column 1: Presets -->
+            <div class="dashboard-card">
+                <h2>
+                    <span>Presets</span>
+                    <div class="edit-toggle-container">
+                        <span class="edit-toggle-label">Edit</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </h2>
+                <p class="info">Save and recall camera positions</p>
+                <div class="presets-list" id="presetsList"></div>
+            </div>
+
+            <!-- Column 2: Keyboard & Zoom Controls -->
+            <div class="dashboard-card">
+                <h2>Pan/Tilt Control</h2>
+                <p class="info">Click buttons or use WASD keys</p>
+                <div class="wasd-container">
+                    <div class="wasd-grid">
+                        <div></div>
+                        <button class="wasd-btn" id="btnUp">W<br><span>▲</span></button>
+                        <div></div>
+                        <button class="wasd-btn" id="btnLeft">A<br><span>◄</span></button>
+                        <button class="wasd-btn" id="btnDown">S<br><span>▼</span></button>
+                        <button class="wasd-btn" id="btnRight">D<br><span>►</span></button>
+                    </div>
+                </div>
+
+                <h2 style="margin-top: 30px;">Zoom Control</h2>
+                <p class="info">Click buttons or use +/- keys</p>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoomInBtn">+<br><span style="font-size: 14px;">Zoom In</span></button>
+                    <button class="zoom-btn" id="zoomOutBtn">−<br><span style="font-size: 14px;">Zoom Out</span></button>
+                </div>
+            </div>
+
+            <!-- Column 3: Speed & Virtual Joystick -->
+            <div class="dashboard-card">
+                <h2>Speed Control</h2>
+                <p class="info">Adjust movement speed (keys 1-5 or slider)</p>
+                <div class="speed-container">
+                    <div class="speed-display" id="speedDisplay">2</div>
+                    <input type="range" min="1" max="5" value="2" class="speed-slider" id="speedSlider">
+                    <div class="speed-labels">
+                        <span>1</span>
+                        <span>2</span>
+                        <span>3</span>
+                        <span>4</span>
+                        <span>5</span>
+                    </div>
+                </div>
+
+                <h2 style="margin-top: 30px;">Virtual Joystick</h2>
+                <p class="info">Drag for pan/tilt, vertical slider for zoom</p>
+                <div class="joystick-container">
+                    <canvas id="joystickCanvas"></canvas>
+                    <canvas id="zoomJoystickCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for preset naming -->
+    <div class="modal" id="presetModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Name Preset</h3>
+            <input type="text" id="presetNameInput" placeholder="Enter preset name">
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" onclick="confirmPresetName()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        var gamepad_connected = false
-        var port_connected = false
-        /** 
-         * connect Gamepad 
-         */
+        // Global state
+        let port = null;
+        let writer = null;
+        let reader = null;
+        let keepReading = true;
+        let currentSpeed = 2;
+        let joystickActive = false;
+        let lastPTValue = null;
+        let lastZoomValue = null;
+        let currentPresetAction = null;
+        let editMode = false;
 
-        window.addEventListener('gamepadconnected', (event) => {
-            document.getElementById("pad_exist").innerHTML = 'Gamepad connected.';
-            console.log('gamepadconnected');
-            gamepad_connected = true;
-        });
-        window.addEventListener('gamepaddisconnected', (event) => {
-            document.getElementById("pad_exist").innerHTML = 'Gamepad connected.';
-            console.log('gamepaddisconnected');
-            gamepad_connected = true;
-        });
+        const PRESET_COUNT = 6;
+        const BAUD_RATE = 9600;
 
-
-        /** 
-         * connect Serial
-         */
-
-        let port;
-        let outputDone;
-        let outputStream;
-
-        async function connect() {
-            // connect to serial
-
-            // - Request a port and open a connection.
-            port = await navigator.serial.requestPort();
-
-            // - Wait for the port to open.
-            await port.open({ baudRate: 9600 });
-
-            // if connected, change the button name
-            document.getElementById("connect").innerHTML = "connected";
-            port_connected = true;
-
-            // setup the output stream.
-            const encoder = new TextEncoderStream();
-            outputDone = encoder.readable.pipeTo(port.writable);
-            outputStream = encoder.writable;
+        // VISCA Protocol Commands
+        function recallPositionCommand(n) {
+            return new Uint8Array([0x81, 0x01, 0x04, 0x3F, 0x02, n, 0xFF]);
         }
 
-        function send_cmd(s) {
-            // send single byte command
-            // s: str
-            const writer = outputStream.getWriter();
-            writer.write(s);
-            writer.releaseLock();
+        function setPositionCommand(n) {
+            return new Uint8Array([0x81, 0x01, 0x04, 0x3F, 0x01, n, 0xFF]);
         }
 
-        /**
-         * main loop
-         */
-        var intervalId = setInterval(() => {
-            if (port_connected & gamepad_connected) {
-                loop();
+        function panTiltCommand(b1, b2, panSpeed, tiltSpeed) {
+            return new Uint8Array([0x81, 0x01, 0x06, 0x01, panSpeed, tiltSpeed, b1, b2, 0xFF]);
+        }
+
+        function zoomCommand(c) {
+            return new Uint8Array([0x81, 0x01, 0x04, 0x07, c, 0xFF]);
+        }
+
+        // Send command to camera
+        async function sendCommand(command) {
+            if (writer) {
+                try {
+                    // Log outgoing command
+                    console.log('Serial Sent:',
+                        Array.from(command)
+                            .map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0'))
+                            .join(' ')
+                    );
+                    await writer.write(command);
+                } catch (error) {
+                    console.error('Error sending command:', error);
+                }
             }
-        }, 100);
-
-        function loop() {
-            document.getElementById("test").innerHTML = navigator.getGamepads()[0].axes
         }
+
+        // Load presets from localStorage
+        function loadPresets() {
+            const presets = [];
+            for (let i = 0; i < PRESET_COUNT; i++) {
+                const name = localStorage.getItem(`preset_${i}`) || '';
+                presets.push(name);
+            }
+            return presets;
+        }
+
+        // Save preset to localStorage
+        function savePreset(index, name) {
+            localStorage.setItem(`preset_${index}`, name);
+            renderPresets();
+        }
+
+        // Toggle edit mode
+        function toggleEditMode() {
+            editMode = document.getElementById('editToggle').checked;
+            renderPresets();
+        }
+
+        // Render presets UI
+        function renderPresets() {
+            const presets = loadPresets();
+            const container = document.getElementById('presetsList');
+            container.innerHTML = '';
+
+            presets.forEach((name, index) => {
+                const item = document.createElement('div');
+                item.className = 'preset-item';
+
+                const recallBtn = document.createElement('button');
+                recallBtn.className = 'preset-recall';
+                recallBtn.disabled = !name;
+                recallBtn.innerHTML = `<span class="slot-number">Slot ${index + 1}</span><span class="preset-name">${name || 'Empty'}</span>`;
+                recallBtn.title = name || 'Empty'; // Show full name on hover
+                recallBtn.onclick = () => recallPreset(index);
+
+                item.appendChild(recallBtn);
+
+                // Only show edit buttons when edit mode is on
+                if (editMode) {
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'preset-btn preset-rename';
+                    renameBtn.textContent = '✏️';
+                    renameBtn.title = 'Rename preset';
+                    renameBtn.disabled = !name;
+                    renameBtn.onclick = () => renamePreset(index, name);
+
+                    const clearBtn = document.createElement('button');
+                    clearBtn.className = 'preset-btn preset-clear';
+                    clearBtn.textContent = '🗑️';
+                    clearBtn.title = 'Clear preset';
+                    clearBtn.disabled = !name;
+                    clearBtn.onclick = () => clearPreset(index, name);
+
+                    item.appendChild(renameBtn);
+                    item.appendChild(clearBtn);
+                }
+
+                const setBtn = document.createElement('button');
+                setBtn.className = 'preset-btn preset-set';
+                setBtn.textContent = '💾';
+                setBtn.title = 'Save current position';
+                setBtn.onclick = () => setPreset(index, name);
+
+                item.appendChild(setBtn);
+                container.appendChild(item);
+            });
+        }
+
+        // Recall preset
+        function recallPreset(index) {
+            sendCommand(recallPositionCommand(index));
+        }
+
+        // Set preset
+        function setPreset(index, currentName) {
+            if (currentName) {
+                // Confirm overwrite
+                if (confirm(`Overwrite preset "${currentName}"?`)) {
+                    currentPresetAction = { type: 'overwrite', index, currentName };
+                    showModal('Rename Preset', currentName);
+                }
+            } else {
+                // New preset
+                currentPresetAction = { type: 'new', index };
+                showModal('Name Preset', '');
+            }
+        }
+
+        // Rename preset
+        function renamePreset(index, currentName) {
+            currentPresetAction = { type: 'rename', index };
+            showModal('Rename Preset', currentName);
+        }
+
+        // Clear preset
+        function clearPreset(index, name) {
+            if (confirm(`Delete preset "${name}"?`)) {
+                localStorage.setItem(`preset_${index}`, '');
+                renderPresets();
+            }
+        }
+
+        // Show modal
+        function showModal(title, defaultValue) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('presetNameInput').value = defaultValue;
+            document.getElementById('presetModal').classList.add('show');
+            document.getElementById('presetNameInput').focus();
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('presetModal').classList.remove('show');
+            currentPresetAction = null;
+        }
+
+        // Confirm preset name
+        function confirmPresetName() {
+            const name = document.getElementById('presetNameInput').value.trim();
+            if (!name) {
+                alert('Please enter a preset name');
+                return;
+            }
+
+            if (currentPresetAction) {
+                savePreset(currentPresetAction.index, name);
+
+                // Only send position command for new/overwrite, not for rename
+                if (currentPresetAction.type !== 'rename') {
+                    sendCommand(setPositionCommand(currentPresetAction.index));
+                }
+
+                closeModal();
+            }
+        }
+
+        // Virtual Joystick
+        function initJoystick() {
+            const canvas = document.getElementById('joystickCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Helper functions
+            const centerX = () => canvas.width / 2;
+            const centerY = () => canvas.height / 2;
+            const maxRadius = () => Math.min(canvas.width, canvas.height) / 2 - 20;
+
+            function drawJoystick(dx, dy) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw outer circle
+                ctx.beginPath();
+                ctx.arc(centerX(), centerY(), maxRadius(), 0, 2 * Math.PI);
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw center point
+                ctx.beginPath();
+                ctx.arc(centerX(), centerY(), 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#999';
+                ctx.fill();
+
+                // Draw joystick position
+                ctx.beginPath();
+                ctx.arc(centerX() + dx, centerY() - dy, 30, 0, 2 * Math.PI);
+                ctx.fillStyle = joystickActive ? '#667eea' : '#aaa';
+                ctx.fill();
+            }
+
+            function handleJoystickMove(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left - centerX();
+                const y = -(clientY - rect.top - centerY());
+
+                const distance = Math.sqrt(x * x + y * y);
+                const maxDist = maxRadius() - 30;
+
+                let dx = x;
+                let dy = y;
+
+                if (distance > maxDist) {
+                    dx = (x / distance) * maxDist;
+                    dy = (y / distance) * maxDist;
+                }
+
+                drawJoystick(dx, dy);
+
+                // Convert to pan/tilt commands
+                const deadZone = maxDist * 0.1;
+
+                if (Math.abs(dx) < deadZone && Math.abs(dy) < deadZone) {
+                    sendPanTilt(3, 3, 0, 0);
+                } else {
+                    const panDir = dx > deadZone ? 2 : (dx < -deadZone ? 1 : 3);
+                    const tiltDir = dy > deadZone ? 1 : (dy < -deadZone ? 2 : 3);
+
+                    const panSpeed = Math.min(Math.floor((Math.abs(dx) - deadZone) / (maxDist - deadZone) * currentSpeed) + 1, currentSpeed);
+                    const tiltSpeed = Math.min(Math.floor((Math.abs(dy) - deadZone) / (maxDist - deadZone) * currentSpeed) + 1, currentSpeed);
+
+                    sendPanTilt(panDir, tiltDir, panSpeed, tiltSpeed);
+                }
+            }
+
+            canvas.addEventListener('mousedown', (e) => {
+                joystickActive = true;
+                handleJoystickMove(e.clientX, e.clientY);
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (joystickActive) {
+                    handleJoystickMove(e.clientX, e.clientY);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                joystickActive = false;
+                drawJoystick(0, 0);
+                sendPanTilt(3, 3, 0, 0);
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                if (joystickActive) {
+                    joystickActive = false;
+                    drawJoystick(0, 0);
+                    sendPanTilt(3, 3, 0, 0);
+                }
+            });
+
+            // Touch support
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                joystickActive = true;
+                const touch = e.touches[0];
+                handleJoystickMove(touch.clientX, touch.clientY);
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (joystickActive) {
+                    const touch = e.touches[0];
+                    handleJoystickMove(touch.clientX, touch.clientY);
+                }
+            });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                joystickActive = false;
+                drawJoystick(0, 0);
+                sendPanTilt(3, 3, 0, 0);
+            });
+
+            // Set canvas size
+            canvas.width = 250;
+            canvas.height = 250;
+            drawJoystick(0, 0);
+        }
+
+        // Zoom Joystick (1D vertical)
+        function initZoomJoystick() {
+            const canvas = document.getElementById('zoomJoystickCanvas');
+            const ctx = canvas.getContext('2d');
+            let zoomActive = false;
+
+            canvas.width = 50;
+            canvas.height = 250;
+
+            const centerX = canvas.width / 2;
+            const trackHeight = canvas.height - 40;
+            const trackTop = 20;
+
+            function drawZoomJoystick(position) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw track
+                ctx.beginPath();
+                ctx.moveTo(centerX, trackTop);
+                ctx.lineTo(centerX, trackTop + trackHeight);
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Draw center line
+                ctx.beginPath();
+                ctx.moveTo(centerX - 10, canvas.height / 2);
+                ctx.lineTo(centerX + 10, canvas.height / 2);
+                ctx.strokeStyle = '#999';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw zoom in/out indicators
+                ctx.fillStyle = '#666';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('+', centerX, trackTop - 5);
+                ctx.fillText('−', centerX, trackTop + trackHeight + 15);
+
+                // Draw thumb
+                const thumbY = trackTop + (trackHeight / 2) + position;
+                ctx.beginPath();
+                ctx.arc(centerX, thumbY, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = zoomActive ? '#4caf50' : '#aaa';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            function handleZoomMove(clientY) {
+                const rect = canvas.getBoundingClientRect();
+                const y = clientY - rect.top;
+
+                // Calculate position relative to center
+                const centerY = canvas.height / 2;
+                let dy = y - centerY;
+
+                // Clamp to track bounds
+                const maxDist = trackHeight / 2;
+                dy = Math.max(-maxDist, Math.min(maxDist, dy));
+
+                drawZoomJoystick(dy);
+
+                // Convert to zoom command
+                const deadZone = maxDist * 0.15;
+
+                if (Math.abs(dy) < deadZone) {
+                    sendZoom(0);
+                } else {
+                    // dy < 0 means up (zoom in), dy > 0 means down (zoom out)
+                    const zoomDir = dy < 0 ? 2 : 3;
+                    const zoomSpeed = Math.min(Math.floor((Math.abs(dy) - deadZone) / (maxDist - deadZone) * currentSpeed) + 1, currentSpeed);
+                    sendZoom(zoomSpeed + zoomDir * 16);
+                }
+            }
+
+            // Mouse events
+            canvas.addEventListener('mousedown', (e) => {
+                zoomActive = true;
+                handleZoomMove(e.clientY);
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (zoomActive) {
+                    handleZoomMove(e.clientY);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                zoomActive = false;
+                drawZoomJoystick(0);
+                sendZoom(0);
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                if (zoomActive) {
+                    zoomActive = false;
+                    drawZoomJoystick(0);
+                    sendZoom(0);
+                }
+            });
+
+            // Touch events
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                zoomActive = true;
+                const touch = e.touches[0];
+                handleZoomMove(touch.clientY);
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (zoomActive) {
+                    const touch = e.touches[0];
+                    handleZoomMove(touch.clientY);
+                }
+            });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                zoomActive = false;
+                drawZoomJoystick(0);
+                sendZoom(0);
+            });
+
+            drawZoomJoystick(0);
+        }
+
+        // Send pan/tilt command (with deduplication)
+        function sendPanTilt(b1, b2, panSpeed, tiltSpeed) {
+            const value = b1 * 1000000 + b2 * 10000 + panSpeed * 100 + tiltSpeed;
+            if (value !== lastPTValue) {
+                lastPTValue = value;
+                sendCommand(panTiltCommand(b1, b2, panSpeed, tiltSpeed));
+            }
+        }
+
+        // Send zoom command (with deduplication)
+        function sendZoom(zoomValue) {
+            if (zoomValue !== lastZoomValue) {
+                lastZoomValue = zoomValue;
+                sendCommand(zoomCommand(zoomValue));
+            }
+        }
+
+        // Keyboard control
+        let activeKeys = new Set();
+
+        document.addEventListener('keydown', (e) => {
+            // Ignore keyboard controls when modal is open or input is focused
+            if (document.getElementById('presetModal').classList.contains('show')) {
+                return;
+            }
+
+            // Prevent repeat events
+            if (activeKeys.has(e.key)) return;
+            activeKeys.add(e.key);
+
+            // Speed adjustment
+            if (e.key >= '1' && e.key <= '5') {
+                currentSpeed = parseInt(e.key);
+                document.getElementById('speedSlider').value = currentSpeed;
+                document.getElementById('speedDisplay').textContent = currentSpeed;
+                return;
+            }
+
+            // Movement
+            if (e.key === 'w' || e.key === 'W') {
+                sendPanTilt(3, 1, currentSpeed, currentSpeed);
+            } else if (e.key === 's' || e.key === 'S') {
+                sendPanTilt(3, 2, currentSpeed, currentSpeed);
+            } else if (e.key === 'a' || e.key === 'A') {
+                sendPanTilt(1, 3, currentSpeed, currentSpeed);
+            } else if (e.key === 'd' || e.key === 'D') {
+                sendPanTilt(2, 3, currentSpeed, currentSpeed);
+            } else if (e.key === '+' || e.key === '=') {
+                sendZoom(currentSpeed + 2 * 16);
+            } else if (e.key === '-' || e.key === '_') {
+                sendZoom(currentSpeed + 3 * 16);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            // Ignore keyboard controls when modal is open
+            if (document.getElementById('presetModal').classList.contains('show')) {
+                return;
+            }
+
+            activeKeys.delete(e.key);
+
+            const moveKeys = ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D'];
+            const zoomKeys = ['+', '=', '-', '_'];
+
+            if (moveKeys.includes(e.key)) {
+                sendPanTilt(3, 3, 0, 0);
+            } else if (zoomKeys.includes(e.key)) {
+                sendZoom(0);
+            }
+        });
+
+        // Speed slider
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            currentSpeed = parseInt(e.target.value);
+            document.getElementById('speedDisplay').textContent = currentSpeed;
+        });
+
+        // WASD button controls
+        function setupButton(id, pressAction, releaseAction) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('mousedown', pressAction);
+            btn.addEventListener('mouseup', releaseAction);
+            btn.addEventListener('mouseleave', releaseAction);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); pressAction(); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); releaseAction(); });
+        }
+
+        setupButton('btnUp',
+            () => sendPanTilt(3, 1, currentSpeed, currentSpeed),
+            () => sendPanTilt(3, 3, 0, 0)
+        );
+
+        setupButton('btnDown',
+            () => sendPanTilt(3, 2, currentSpeed, currentSpeed),
+            () => sendPanTilt(3, 3, 0, 0)
+        );
+
+        setupButton('btnLeft',
+            () => sendPanTilt(1, 3, currentSpeed, currentSpeed),
+            () => sendPanTilt(3, 3, 0, 0)
+        );
+
+        setupButton('btnRight',
+            () => sendPanTilt(2, 3, currentSpeed, currentSpeed),
+            () => sendPanTilt(3, 3, 0, 0)
+        );
+
+        // Zoom buttons
+        setupButton('zoomInBtn',
+            () => sendZoom(currentSpeed + 2 * 16),
+            () => sendZoom(0)
+        );
+
+        setupButton('zoomOutBtn',
+            () => sendZoom(currentSpeed + 3 * 16),
+            () => sendZoom(0)
+        );
+
+        // Modal enter key support
+        document.getElementById('presetNameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                confirmPresetName();
+            }
+        });
+
+        // Web Serial Connection
+        async function connectSerial() {
+            try {
+                // Request port
+                port = await navigator.serial.requestPort();
+
+                // Store port info for auto-reconnect
+                const info = port.getInfo();
+                localStorage.setItem('lastPortInfo', JSON.stringify(info));
+
+                await openPort();
+            } catch (error) {
+                console.error('Error connecting:', error);
+                alert('Failed to connect to camera');
+            }
+        }
+
+        async function disconnectSerial() {
+            // Clean up writer
+            if (writer) {
+                try {
+                    await writer.releaseLock();
+                } catch(e) {}
+                writer = null;
+            }
+
+            // Clean up reader
+            if (reader) {
+                try {
+                    keepReading = false;
+                    await reader.cancel();
+                    await reader.releaseLock();
+                } catch(e) {}
+                reader = null;
+                keepReading = true;
+            }
+
+            // Close port
+            if (port) {
+                try {
+                    await port.close();
+                } catch(e) {}
+                port = null;
+            }
+
+            // Return to connection screen
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('connectionScreen').style.display = 'flex';
+        }
+
+        async function openPort() {
+            try {
+                // Check if port is already open
+                if (!port.readable || !port.writable) {
+                    await port.open({
+                        baudRate: BAUD_RATE,
+                        dataBits: 8,
+                        stopBits: 1,
+                        parity: 'none',
+                        flowControl: 'none'
+                    });
+                }
+
+                // Set up writer
+                writer = port.writable.getWriter();
+
+                // Set up reader
+                reader = port.readable.getReader();
+                readLoop();
+
+                // Show main app
+                document.getElementById('connectionScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('statusBadge').className = 'status-badge status-connected';
+                document.getElementById('statusBadge').textContent = 'Connected';
+
+                initJoystick();
+                initZoomJoystick();
+                renderPresets();
+
+                // Monitor for disconnection
+                navigator.serial.addEventListener('disconnect', handleDisconnect);
+
+            } catch (error) {
+                console.error('Error opening port:', error);
+                alert(`Failed to open serial port: ${error.message}\n\nMake sure the port is not already open in another application.`);
+
+                // Clean up on error
+                if (writer) {
+                    try { await writer.releaseLock(); } catch(e) {}
+                    writer = null;
+                }
+                if (reader) {
+                    try { await reader.releaseLock(); } catch(e) {}
+                    reader = null;
+                }
+                if (port) {
+                    try { await port.close(); } catch(e) {}
+                }
+            }
+        }
+
+        async function readLoop() {
+            try {
+                while (keepReading && port && port.readable) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    // Display received data in console
+                    if (value && value.length > 0) {
+                        console.log('Serial Received:',
+                            Array.from(value)
+                                .map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0'))
+                                .join(' '),
+                            '|',
+                            new TextDecoder().decode(value)
+                        );
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading:', error);
+            } finally {
+                if (reader) {
+                    try {
+                        reader.releaseLock();
+                    } catch(e) {}
+                }
+            }
+        }
+
+        async function handleDisconnect(event) {
+            console.log('Device disconnected');
+            document.getElementById('statusBadge').className = 'status-badge status-disconnected';
+            document.getElementById('statusBadge').textContent = 'Disconnected';
+
+            // Clean up writer
+            if (writer) {
+                try {
+                    await writer.releaseLock();
+                } catch(e) {
+                    console.error('Error releasing writer:', e);
+                }
+                writer = null;
+            }
+
+            // Clean up reader
+            if (reader) {
+                try {
+                    keepReading = false;
+                    await reader.cancel();
+                    await reader.releaseLock();
+                } catch(e) {
+                    console.error('Error releasing reader:', e);
+                }
+                reader = null;
+                keepReading = true;
+            }
+
+            // Close port
+            if (port) {
+                try {
+                    await port.close();
+                } catch(e) {
+                    console.error('Error closing port:', e);
+                }
+            }
+
+            // Try to reconnect
+            setTimeout(attemptReconnect, 2000);
+        }
+
+        async function attemptReconnect() {
+            try {
+                const ports = await navigator.serial.getPorts();
+                const lastPortInfo = JSON.parse(localStorage.getItem('lastPortInfo') || '{}');
+
+                // Find matching port
+                for (const p of ports) {
+                    const info = p.getInfo();
+                    if (info.usbVendorId === lastPortInfo.usbVendorId &&
+                        info.usbProductId === lastPortInfo.usbProductId) {
+
+                        // Make sure port is closed first
+                        try {
+                            if (p.readable || p.writable) {
+                                await p.close();
+                            }
+                        } catch(e) {
+                            console.log('Port already closed');
+                        }
+
+                        port = p;
+                        await openPort();
+                        return;
+                    }
+                }
+
+                // If not found, try again later
+                console.log('Port not found, retrying...');
+                setTimeout(attemptReconnect, 2000);
+            } catch (error) {
+                console.error('Reconnection failed:', error);
+                setTimeout(attemptReconnect, 2000);
+            }
+        }
+
+        // Check for previously authorized port on load
+        window.addEventListener('load', async () => {
+            try {
+                if (!('serial' in navigator)) {
+                    alert('Web Serial API is not supported in this browser. Please use Chrome, Edge, or Opera.');
+                    return;
+                }
+
+                const ports = await navigator.serial.getPorts();
+                if (ports.length > 0) {
+                    // Make sure port is closed first
+                    try {
+                        if (ports[0].readable || ports[0].writable) {
+                            await ports[0].close();
+                        }
+                    } catch(e) {
+                        console.log('Port already closed');
+                    }
+
+                    port = ports[0];
+                    await openPort();
+                }
+            } catch (error) {
+                console.error('Error checking for authorized ports:', error);
+            }
+        });
     </script>
 </body>
-
 </html>
