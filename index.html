@@ -515,6 +515,25 @@
         .modal-btn:hover {
             opacity: 0.9;
         }
+
+        /* Footer */
+        .app-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-size: 11px;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        .app-footer strong {
+            color: #fff;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -580,7 +599,6 @@
                 <h2>Speed Control</h2>
                 <p class="info">Adjust movement speed (keys 1-5 or slider)</p>
                 <div class="speed-container">
-                    <div class="speed-display" id="speedDisplay">2</div>
                     <input type="range" min="1" max="5" value="2" class="speed-slider" id="speedSlider">
                     <div class="speed-labels">
                         <span>1</span>
@@ -599,6 +617,11 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="app-footer">
+        <strong>Tip:</strong> Hold <strong>SPACEBAR</strong> + move mouse to control | Mouse wheel to zoom
     </div>
 
     <!-- Modal for preset naming -->
@@ -626,8 +649,16 @@
         let currentPresetAction = null;
         let editMode = false;
 
+        // Spacebar mode state
+        let spacebarMode = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let mouseMovementAccumulated = { x: 0, y: 0 };
+
         const PRESET_COUNT = 6;
         const BAUD_RATE = 9600;
+        const SPACEBAR_SENSITIVITY = 5; // Sensitivity multiplier for mouse movement
+        const SPACEBAR_ZOOM_SENSITIVITY = 1; // Sensitivity for zoom (5x smaller than movement)
 
         // VISCA Protocol Commands
         function recallPositionCommand(n) {
@@ -1081,6 +1112,17 @@
                 return;
             }
 
+            // Ignore keyboard controls when spacebar mode is active (except for speed adjustment)
+            if (spacebarMode && e.key !== ' ') {
+                // Still allow speed adjustment in spacebar mode
+                if (e.key >= '1' && e.key <= '5') {
+                    currentSpeed = parseInt(e.key);
+                    document.getElementById('speedSlider').value = currentSpeed;
+                    document.getElementById('speedDisplay').textContent = currentSpeed;
+                }
+                return;
+            }
+
             // Prevent repeat events
             if (activeKeys.has(e.key)) return;
             activeKeys.add(e.key);
@@ -1089,7 +1131,6 @@
             if (e.key >= '1' && e.key <= '5') {
                 currentSpeed = parseInt(e.key);
                 document.getElementById('speedSlider').value = currentSpeed;
-                document.getElementById('speedDisplay').textContent = currentSpeed;
                 return;
             }
 
@@ -1115,6 +1156,24 @@
                 return;
             }
 
+            // Handle spacebar release first
+            if (e.key === ' ' && spacebarMode) {
+                spacebarMode = false;
+                mouseMovementAccumulated = { x: 0, y: 0 };
+                if (mouseStopTimeout) {
+                    clearTimeout(mouseStopTimeout);
+                    mouseStopTimeout = null;
+                }
+                sendPanTilt(3, 3, 0, 0); // Stop movement
+                sendZoom(0); // Stop zoom
+                return;
+            }
+
+            // Ignore other key releases when in spacebar mode
+            if (spacebarMode) {
+                return;
+            }
+
             activeKeys.delete(e.key);
 
             const moveKeys = ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D'];
@@ -1127,10 +1186,117 @@
             }
         });
 
+        // Spacebar mode: Hold space and move mouse to control pan/tilt
+        document.addEventListener('keydown', (e) => {
+            // Activate spacebar mode
+            if (e.key === ' ') {
+                // Ignore if modal is open
+                if (document.getElementById('presetModal').classList.contains('show')) {
+                    return;
+                }
+
+                e.preventDefault(); // Disable page scroll
+
+                // Only activate once (prevent key repeat)
+                if (!spacebarMode) {
+                    spacebarMode = true;
+                    lastMouseX = 0;
+                    lastMouseY = 0;
+                    mouseMovementAccumulated = { x: 0, y: 0 };
+                }
+            }
+        }, true); // Use capture phase to prevent default early
+
+        // Track mouse movement for spacebar mode
+        let mouseStopTimeout = null;
+        document.addEventListener('mousemove', (e) => {
+            if (!spacebarMode) return;
+
+            if (lastMouseX === 0 && lastMouseY === 0) {
+                // First movement, just record position
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                return;
+            }
+
+            // Calculate mouse delta
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            // Accumulate movement
+            mouseMovementAccumulated.x += deltaX * SPACEBAR_SENSITIVITY;
+            mouseMovementAccumulated.y += deltaY * SPACEBAR_SENSITIVITY;
+
+            // Apply dead zone
+            const deadZone = 0.8;
+
+            let panDir = 3; // Stop
+            let tiltDir = 3; // Stop
+            let panSpeed = 0;
+            let tiltSpeed = 0;
+
+            // Determine pan direction and speed based on current accumulated movement
+            if (Math.abs(mouseMovementAccumulated.x) > deadZone) {
+                panDir = mouseMovementAccumulated.x > 0 ? 2 : 1; // Right : Left
+                panSpeed = Math.min(Math.floor(Math.abs(mouseMovementAccumulated.x) / 2) + 1, currentSpeed);
+            }
+
+            // Determine tilt direction and speed
+            if (Math.abs(mouseMovementAccumulated.y) > deadZone) {
+                tiltDir = mouseMovementAccumulated.y > 0 ? 2 : 1; // Down : Up
+                tiltSpeed = Math.min(Math.floor(Math.abs(mouseMovementAccumulated.y) / 2) + 1, currentSpeed);
+            }
+
+            // Send continuous movement command
+            sendPanTilt(panDir, tiltDir, panSpeed || currentSpeed, tiltSpeed || currentSpeed);
+
+            // Decay accumulated movement
+            mouseMovementAccumulated.x *= 0.7;
+            mouseMovementAccumulated.y *= 0.7;
+
+            // Clear any existing stop timeout
+            if (mouseStopTimeout) {
+                clearTimeout(mouseStopTimeout);
+            }
+
+            // Set timeout to stop movement when mouse stops moving
+            mouseStopTimeout = setTimeout(() => {
+                if (spacebarMode) {
+                    mouseMovementAccumulated = { x: 0, y: 0 };
+                    sendPanTilt(3, 3, 0, 0);
+                }
+            }, 100);
+        });
+
+        // Track mouse wheel for zoom in spacebar mode
+        document.addEventListener('wheel', (e) => {
+            if (!spacebarMode) return;
+
+            e.preventDefault(); // Prevent page scroll
+
+            const deltaY = e.deltaY;
+
+            // Determine zoom direction and speed
+            if (Math.abs(deltaY) > 5) {
+                const zoomDir = deltaY < 0 ? 2 : 3; // Up (zoom in) : Down (zoom out)
+                const zoomSpeed = Math.min(Math.floor(Math.abs(deltaY) * SPACEBAR_ZOOM_SENSITIVITY / 10) + 1, currentSpeed);
+                sendZoom(zoomSpeed + zoomDir * 16);
+
+                // Auto-stop zoom after short delay
+                setTimeout(() => {
+                    if (spacebarMode) {
+                        sendZoom(0);
+                    }
+                }, 50);
+            }
+        }, { passive: false }); // Need non-passive to preventDefault
+
         // Speed slider
         document.getElementById('speedSlider').addEventListener('input', (e) => {
             currentSpeed = parseInt(e.target.value);
-            document.getElementById('speedDisplay').textContent = currentSpeed;
         });
 
         // WASD button controls

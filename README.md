@@ -11,6 +11,7 @@
 🎮 **Multiple Control Options**
 - Virtual joysticks (pan/tilt + zoom)
 - WASD keyboard controls
+- Spacebar mode: Hold spacebar + mouse movement for direct control
 - On-screen button controls
 - Touch screen support
 
@@ -42,6 +43,11 @@
 Pan/Tilt:    W ↑   A ←   S ↓   D →
 Zoom:        + IN   - OUT
 Speed:       1-5 (slow to fast)
+
+Spacebar Mode (hold):
+  - Move mouse → Pan/Tilt camera
+  - Scroll wheel → Zoom in/out
+  - Disables page scrolling while active
 ```
 
 ---
@@ -52,6 +58,7 @@ Speed:       1-5 (slow to fast)
 - Drag the circular joystick for pan/tilt
 - Drag the vertical slider for zoom
 - Click WASD buttons or use keyboard
+- **Hold spacebar** and move mouse for direct camera control (mouse wheel for zoom)
 - Adjust speed with slider or number keys (1-5)
 
 **Save Presets**
