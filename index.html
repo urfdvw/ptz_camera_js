@@ -667,7 +667,7 @@
         function loadPresets() {
             const presets = [];
             for (let i = 0; i < PRESET_COUNT; i++) {
-                const name = localStorage.getItem(`preset_${i}`) || '';
+                const name = localStorage.getItem(`preset_${i}`) || `Preset ${i + 1}`;
                 presets.push(name);
             }
             return presets;
@@ -697,9 +697,8 @@
 
                 const recallBtn = document.createElement('button');
                 recallBtn.className = 'preset-recall';
-                recallBtn.disabled = !name;
-                recallBtn.innerHTML = `<span class="slot-number">Slot ${index + 1}</span><span class="preset-name">${name || 'Empty'}</span>`;
-                recallBtn.title = name || 'Empty'; // Show full name on hover
+                recallBtn.innerHTML = `<span class="slot-number">Slot ${index + 1}</span><span class="preset-name">${name}</span>`;
+                recallBtn.title = `Load preset ${name}`; // Show full name on hover
                 recallBtn.onclick = () => recallPreset(index);
 
                 item.appendChild(recallBtn);
@@ -710,27 +709,17 @@
                     renameBtn.className = 'preset-btn preset-rename';
                     renameBtn.textContent = '✏️';
                     renameBtn.title = 'Rename preset';
-                    renameBtn.disabled = !name;
                     renameBtn.onclick = () => renamePreset(index, name);
 
-                    const clearBtn = document.createElement('button');
-                    clearBtn.className = 'preset-btn preset-clear';
-                    clearBtn.textContent = '🗑️';
-                    clearBtn.title = 'Clear preset';
-                    clearBtn.disabled = !name;
-                    clearBtn.onclick = () => clearPreset(index, name);
+                    const setBtn = document.createElement('button');
+                    setBtn.className = 'preset-btn preset-set';
+                    setBtn.textContent = '💾';
+                    setBtn.title = 'Save current position';
+                    setBtn.onclick = () => setPreset(index, name);
 
                     item.appendChild(renameBtn);
-                    item.appendChild(clearBtn);
+                    item.appendChild(setBtn);
                 }
-
-                const setBtn = document.createElement('button');
-                setBtn.className = 'preset-btn preset-set';
-                setBtn.textContent = '💾';
-                setBtn.title = 'Save current position';
-                setBtn.onclick = () => setPreset(index, name);
-
-                item.appendChild(setBtn);
                 container.appendChild(item);
             });
         }
@@ -742,16 +731,8 @@
 
         // Set preset
         function setPreset(index, currentName) {
-            if (currentName) {
-                // Confirm overwrite
-                if (confirm(`Overwrite preset "${currentName}"?`)) {
-                    currentPresetAction = { type: 'overwrite', index, currentName };
-                    showModal('Rename Preset', currentName);
-                }
-            } else {
-                // New preset
-                currentPresetAction = { type: 'new', index };
-                showModal('Name Preset', '');
+            if (confirm(`Save current position to "${currentName}"?`)) {
+                sendCommand(setPositionCommand(index));
             }
         }
 
@@ -763,8 +744,8 @@
 
         // Clear preset
         function clearPreset(index, name) {
-            if (confirm(`Delete preset "${name}"?`)) {
-                localStorage.setItem(`preset_${index}`, '');
+            if (confirm(`Reset preset "${name}" to default?`)) {
+                localStorage.removeItem(`preset_${index}`);
                 renderPresets();
             }
         }
@@ -793,12 +774,6 @@
 
             if (currentPresetAction) {
                 savePreset(currentPresetAction.index, name);
-
-                // Only send position command for new/overwrite, not for rename
-                if (currentPresetAction.type !== 'rename') {
-                    sendCommand(setPositionCommand(currentPresetAction.index));
-                }
-
                 closeModal();
             }
         }
