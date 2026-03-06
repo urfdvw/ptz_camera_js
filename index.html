@@ -1200,6 +1200,9 @@
                 port = null;
             }
 
+            // Clear stored port info to prevent auto-reconnect on refresh
+            localStorage.removeItem('lastPortInfo');
+
             // Return to connection screen
             document.getElementById('mainApp').style.display = 'none';
             document.getElementById('connectionScreen').style.display = 'flex';
@@ -1367,6 +1370,12 @@
                 if (!('serial' in navigator)) {
                     alert('Web Serial API is not supported in this browser. Please use Chrome, Edge, or Opera.');
                     return;
+                }
+
+                // Only auto-connect if we have stored port info (not manually disconnected)
+                const lastPortInfo = localStorage.getItem('lastPortInfo');
+                if (!lastPortInfo) {
+                    return; // User manually disconnected, don't auto-connect
                 }
 
                 const ports = await navigator.serial.getPorts();
