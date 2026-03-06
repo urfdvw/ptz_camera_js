@@ -1050,6 +1050,32 @@
         let activeKeys = new Set();
 
         document.addEventListener('keydown', (e) => {
+            // Capture Ctrl-B, Ctrl-C and Ctrl-D to send to serial
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                if (writer) {
+                    sendCommand(new Uint8Array([0x02, 0x0D])); // Ctrl-B + CR
+                    console.log('Sent Ctrl-B to serial');
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'c') {
+                e.preventDefault();
+                if (writer) {
+                    sendCommand(new Uint8Array([0x03, 0x0D])); // Ctrl-C + CR
+                    console.log('Sent Ctrl-C to serial');
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                if (writer) {
+                    sendCommand(new Uint8Array([0x04, 0x0D])); // Ctrl-D + CR
+                    console.log('Sent Ctrl-D to serial');
+                }
+                return;
+            }
+
             // Ignore keyboard controls when modal is open or input is focused
             if (document.getElementById('presetModal').classList.contains('show')) {
                 return;
@@ -1268,13 +1294,7 @@
 
                     // Display received data in console
                     if (value && value.length > 0) {
-                        console.log('Serial Received:',
-                            Array.from(value)
-                                .map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0'))
-                                .join(' '),
-                            '|',
-                            new TextDecoder().decode(value)
-                        );
+                        console.log('Serial Received:', new TextDecoder().decode(value));
                     }
                 }
             } catch (error) {
